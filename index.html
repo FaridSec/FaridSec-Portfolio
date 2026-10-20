@@ -10,6 +10,12 @@
 <meta property="og:description" content="AWS IAM attack path discovery and human-approved AI remediation. Coming 2026.">
 <meta property="og:image" content="https://faridsec.com/logo.png">
 <meta property="og:url" content="https://faridsec.com">
+<!-- Added Twitter Cards -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FaridEx: AWS IAM attack path analysis">
+<meta name="twitter:description" content="Find the attack path. Cut it at the choke point. Coming 2026 from FaridSec.">
+<meta name="twitter:image" content="https://faridsec.com/logo.png">
+<link rel="canonical" href="https://faridsec.com/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230F0F15'/%3E%3Cpath d='M16 3c1 7 3 10 13 13-10 3-12 6-13 13-1-7-3-10-13-13C13 13 15 10 16 3z' fill='%23556EEE'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,7 +37,8 @@ body{
 :focus-visible{outline:2px solid var(--accent-text);outline-offset:3px;border-radius:4px}
 
 header{padding:2rem 0 0;display:flex;justify-content:space-between;align-items:center;gap:1rem}
-.logo{display:block;width:clamp(190px,26vw,300px);height:auto;filter:drop-shadow(0 0 1px rgba(123,145,255,.7))}
+/* Updated Logo Glow */
+.logo{display:block;width:clamp(190px,26vw,300px);height:auto;filter:drop-shadow(0 2px 14px rgba(85, 110, 238, 0.38))}
 .status{display:flex;align-items:center;gap:.6rem;color:var(--muted);font-size:.875rem;font-weight:500}
 .status i{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 rgba(85,110,238,.6);animation:ping 2.4s ease-out infinite}
 @keyframes ping{to{box-shadow:0 0 0 10px rgba(85,110,238,0)}}
@@ -47,9 +54,10 @@ form{margin-top:2.25rem;display:flex;gap:.75rem;flex-wrap:wrap;max-width:30rem}
 input{flex:1 1 14rem;min-width:0;background:var(--elev);border:1px solid var(--line);border-radius:10px;color:var(--text);font:500 .9375rem Inter,sans-serif;padding:.85rem 1rem}
 input::placeholder{color:#7d849a}
 input:hover{border-color:rgba(85,110,238,.45)}
-button{background:var(--accent);color:var(--bg);border:0;border-radius:10px;font:600 .9375rem Inter,sans-serif;padding:.85rem 1.35rem;cursor:pointer;transition:transform .15s,background .15s}
+button{background:var(--accent);color:var(--bg);border:0;border-radius:10px;font:600 .9375rem Inter,sans-serif;padding:.85rem 1.35rem;cursor:pointer;transition:transform .15s,background .15s,opacity .15s}
 button:hover{background:var(--accent-text)}
 button:active{transform:scale(.97)}
+button:disabled{cursor:not-allowed}
 .note{flex-basis:100%;font-size:.8125rem;color:var(--muted);min-height:1.3em}
 .note.ok{color:var(--accent-text)} .note.err{color:var(--alert)}
 
@@ -70,7 +78,6 @@ footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 footer a{color:var(--accent-text);text-decoration:none}
 footer a:hover{text-decoration:underline}
 
-/* one load sequence for the hero; the graph starts after it */
 .in{opacity:0;transform:translateY(14px);animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:calc(var(--i)*110ms + 100ms)}
 @keyframes rise{to{opacity:1;transform:none}}
 
@@ -141,24 +148,41 @@ footer a:hover{text-decoration:underline}
 
 <script>
 /* ---- settings ---- */
-const CONTACT = "contact@faridsec.com";   // shown in footer and used as mailto fallback
-const FORM_ENDPOINT = "https://faridex-notify.devsecop3.workers.dev";     // e.g. "https://formspree.io/f/xxxxxxx"; empty = mailto fallback
+const CONTACT = "contact@faridsec.com";
+const FORM_ENDPOINT = "https://faridex-notify.devsecop3.workers.dev";
 
-/* ---- notify form ---- */
+/* ---- notify form (Updated with disabling/feedback) ---- */
 const form = document.getElementById("notify"), input = document.getElementById("email"), note = document.getElementById("note");
 const say = (t, c) => { note.textContent = t; note.className = "note " + (c || ""); };
 document.getElementById("contact").href = "mailto:" + CONTACT;
 document.getElementById("contact").textContent = CONTACT;
+
 form.addEventListener("submit", async e => {
   e.preventDefault();
   if (!input.checkValidity()) { say("Enter a valid email address.", "err"); input.focus(); return; }
   const email = input.value.trim();
+  const btn = form.querySelector("button");
+
   if (FORM_ENDPOINT) {
     try {
-      const r = await fetch(FORM_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ email }) });
+      btn.disabled = true;
+      btn.style.opacity = "0.7";
+      say("Adding to list...", "");
+      
+      const r = await fetch(FORM_ENDPOINT, { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json", Accept: "application/json" }, 
+        body: JSON.stringify({ email }) 
+      });
       if (!r.ok) throw new Error();
-      say("You’re on the list. We’ll email you at launch.", "ok"); form.reset();
-    } catch { say("That didn’t send. Try again, or email " + CONTACT + ".", "err"); }
+      say("You’re on the list. We’ll email you at launch.", "ok"); 
+      form.reset();
+    } catch { 
+      say("That didn’t send. Try again, or email " + CONTACT + ".", "err"); 
+    } finally {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+    }
   } else {
     location.href = "mailto:" + CONTACT + "?subject=" + encodeURIComponent("Notify me at launch") + "&body=" + encodeURIComponent("Please notify " + email + " when FaridEx launches.");
     say("Your email app should open to send the request.", "ok");
@@ -168,7 +192,6 @@ form.addEventListener("submit", async e => {
 /* ---- attack path graph ---- */
 const cv = document.getElementById("graph"), ctx = cv.getContext("2d"), logEl = document.getElementById("log");
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-// x, y as fractions; label offset [dx, dy, align]
 const N = [
   { x:.17, y:.50, l:"0.0.0.0/0",            o:[-14,4,"right"] },
   { x:.27, y:.24, l:"ec2:i-09a8f",          o:[0,-16,"center"] },
@@ -180,7 +203,7 @@ const N = [
 ];
 const E = [[0,1],[0,2],[1,3],[2,3],[2,4],[3,5],[4,5],[6,5]];
 const PA = [[0,1],[1,3],[3,5]], PB = [[0,2],[2,3],[3,5]];
-const LIT = { 0:2.0, 1:2.6, 3:3.2, 5:3.8, 2:4.8 }; // time each node is reached
+const LIT = { 0:2.0, 1:2.6, 3:3.2, 5:3.8, 2:4.8 }; 
 const LOOP = 11.5, SEVER = 6.2;
 const LOG = [
   [.3,  "cmd","$ faridex discover --account 112233445566"],
@@ -210,11 +233,9 @@ function frame(T) {
   ctx.globalAlpha = T > LOOP - 1 ? clamp(LOOP - T) : 1;
   ctx.lineWidth = 1.5; ctx.setLineDash([]);
 
-  // base edges
   ctx.strokeStyle = rgb(MUTED, .26 * intro);
   E.forEach(([a, b]) => line(P(a), P(b), 1));
 
-  // exposed paths, drawn edge by edge, fading to muted once severed
   const col = rgb(mix(ALERT, MUTED, s), 1 - .75 * s);
   [[PA, 2.0], [PB, 4.2]].forEach(([path, t0]) => path.forEach(([a, b], i) => {
     const f = clamp((T - t0 - i * .6) / .6); if (!f) return;
@@ -225,14 +246,13 @@ function frame(T) {
       ctx.beginPath(); ctx.arc(p.x + (q.x-p.x)*f, p.y + (q.y-p.y)*f, 3.5, 0, 7); ctx.fill(); }
   }));
 
-  // nodes + labels
   ctx.font = `${W < 420 ? 10 : 11.5}px "JetBrains Mono", monospace`;
   N.forEach((n, i) => {
     const p = P(i), lit = LIT[i] !== undefined && T >= LIT[i];
     const c = lit ? mix(ALERT, MUTED, s) : ACC, big = i === 5 ? 9 : 7;
     ctx.fillStyle = "#161622"; ctx.strokeStyle = lit ? rgb(c) : rgb(ACC, .55); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(p.x, p.y, big, 0, 7); ctx.fill(); ctx.stroke();
-    if (i === 3 && s > 0) {   // choke point: filled node and one expanding ring
+    if (i === 3 && s > 0) {
       ctx.fillStyle = rgb([85,110,238]); ctx.beginPath(); ctx.arc(p.x, p.y, big - 2, 0, 7); ctx.fill();
       const r = clamp((T - SEVER) / 1.4); ctx.strokeStyle = rgb(ACC, 1 - r);
       ctx.beginPath(); ctx.arc(p.x, p.y, big + 4 + r * 22, 0, 7); ctx.stroke();
@@ -259,7 +279,6 @@ else {
     if (t0 === null) t0 = now;
     const T = ((now - t0) / 1000) % LOOP; frame(T); updateLog(T); requestAnimationFrame(tick);
   };
-  // wait for the hero load sequence, and pause when the tab is hidden
   setTimeout(() => requestAnimationFrame(tick), 900);
 }
 </script>
