@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FaridEx: AWS IAM attack path analysis, coming 2026</title>
+<meta name="description" content="FaridEx maps AWS IAM trust chains as a graph, ranks exploitable privilege escalation paths, and drafts remediation diffs that a human approves. Coming 2026 from FaridSec.">
+<meta name="theme-color" content="#0F0F15">
+<meta property="og:title" content="FaridEx: find the attack path, cut it at the choke point">
+<meta property="og:description" content="AWS IAM attack path discovery and human-approved AI remediation. Coming 2026.">
+<meta property="og:image" content="https://faridsec.com/logo.png">
+<meta property="og:url" content="https://faridsec.com">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230F0F15'/%3E%3Cpath d='M16 3c1 7 3 10 13 13-10 3-12 6-13 13-1-7-3-10-13-13C13 13 15 10 16 3z' fill='%23556EEE'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F0F15; --elev:#161622; --line:rgba(85,110,238,.18);
+  --text:#F3F4F8; --muted:#9CA3B8; --accent:#556EEE; --accent-text:#7B91FF; --alert:#FF7A6B;
+}
+*{box-sizing:border-box;margin:0}
+html{background:var(--bg);color-scheme:dark}
+body{
+  background:var(--bg);color:var(--text);
+  font:400 .9375rem/1.55 Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;
+  min-height:100vh;display:flex;flex-direction:column;
+}
+.wrap{width:min(1180px,100% - 3rem);margin-inline:auto}
+:focus-visible{outline:2px solid var(--accent-text);outline-offset:3px;border-radius:4px}
+
+header{padding:2rem 0 0;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.logo{display:block;width:clamp(190px,26vw,300px);height:auto;filter:drop-shadow(0 0 1px rgba(123,145,255,.7))}
+.status{display:flex;align-items:center;gap:.6rem;color:var(--muted);font-size:.875rem;font-weight:500}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 rgba(85,110,238,.6);animation:ping 2.4s ease-out infinite}
+@keyframes ping{to{box-shadow:0 0 0 10px rgba(85,110,238,0)}}
+
+main{flex:1}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:clamp(2rem,5vw,5rem);align-items:center;padding:clamp(2.5rem,7vw,5.5rem) 0}
+h1{font:700 clamp(2.4rem,5.2vw,4.1rem)/1.1 Outfit,sans-serif;letter-spacing:-.03em;max-width:13ch;text-wrap:balance}
+.lead{font-size:1.125rem;line-height:1.6;letter-spacing:-.01em;color:var(--muted);max-width:46ch;margin-top:1.5rem}
+.lead code,.mono{font-family:"JetBrains Mono",monospace;font-variant-ligatures:none}
+.lead code{font-size:.8125rem;font-weight:500;color:var(--accent-text)}
+
+form{margin-top:2.25rem;display:flex;gap:.75rem;flex-wrap:wrap;max-width:30rem}
+input{flex:1 1 14rem;min-width:0;background:var(--elev);border:1px solid var(--line);border-radius:10px;color:var(--text);font:500 .9375rem Inter,sans-serif;padding:.85rem 1rem}
+input::placeholder{color:#7d849a}
+input:hover{border-color:rgba(85,110,238,.45)}
+button{background:var(--accent);color:var(--bg);border:0;border-radius:10px;font:600 .9375rem Inter,sans-serif;padding:.85rem 1.35rem;cursor:pointer;transition:transform .15s,background .15s}
+button:hover{background:var(--accent-text)}
+button:active{transform:scale(.97)}
+.note{flex-basis:100%;font-size:.8125rem;color:var(--muted);min-height:1.3em}
+.note.ok{color:var(--accent-text)} .note.err{color:var(--alert)}
+
+.stage{background:var(--elev);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.bar{display:flex;justify-content:space-between;padding:.7rem 1rem;border-bottom:1px solid var(--line);font:400 .75rem "JetBrains Mono",monospace;color:var(--muted)}
+canvas{display:block;width:100%;aspect-ratio:4/3}
+.log{border-top:1px solid var(--line);padding:.9rem 1rem;font:400 .8125rem/1.65 "JetBrains Mono",monospace;font-variant-ligatures:none;height:11.6rem;overflow:hidden;color:var(--muted)}
+.log div{white-space:pre-wrap;overflow-wrap:anywhere}
+.log .hit{color:var(--alert)} .log .fix{color:var(--accent-text)} .log .cmd{color:var(--text)}
+
+.caps{display:grid;grid-template-columns:repeat(3,1fr);gap:2.5rem;border-top:1px solid var(--line);padding:2.75rem 0 3.5rem}
+.caps h2{font:600 1.25rem/1.35 Outfit,sans-serif;letter-spacing:-.015em;margin-bottom:.6rem}
+.caps p{color:var(--muted);max-width:36ch}
+.caps code{font:500 .8125rem "JetBrains Mono",monospace;color:var(--accent-text)}
+
+footer{border-top:1px solid var(--line);padding:1.5rem 0 2rem;color:var(--muted);font-size:.875rem}
+footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+footer a{color:var(--accent-text);text-decoration:none}
+footer a:hover{text-decoration:underline}
+
+/* one load sequence for the hero; the graph starts after it */
+.in{opacity:0;transform:translateY(14px);animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:calc(var(--i)*110ms + 100ms)}
+@keyframes rise{to{opacity:1;transform:none}}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr}
+  h1{max-width:16ch}
+  .caps{grid-template-columns:1fr;gap:2rem}
+  .status span{display:none}
+  .log{height:15rem}
+  .bar span:last-child{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .in{animation:none;opacity:1;transform:none}
+  .status i{animation:none}
+  button{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img class="logo in" style="--i:0" src="logo.png" width="1000" height="215" alt="Faridex 2026">
+    <div class="status in" style="--i:1"><i></i><span>In private build, launching 2026</span></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <h1 class="in" style="--i:2">Find the attack path. Cut it at the choke point.</h1>
+        <p class="lead in" style="--i:3">FaridEx maps AWS IAM trust chains as a graph, ranks every exploitable route to admin, and drafts least-privilege fixes. A human approves each change.</p>
+        <form class="in" style="--i:4" id="notify" novalidate>
+          <input type="email" name="email" id="email" placeholder="you@company.com" autocomplete="email" aria-label="Email address" required>
+          <button type="submit">Notify me at launch</button>
+          <p class="note" id="note" role="status" aria-live="polite">One email when FaridEx opens. Nothing else.</p>
+        </form>
+      </div>
+
+      <div class="stage in" style="--i:5" role="img" aria-label="Animated sample graph: two exploitable paths from the internet to a finance S3 bucket both pass through one IAM role. Severing that role cuts both paths.">
+        <div class="bar" aria-hidden="true"><span>faridex discover</span><span>sample graph, synthetic data</span></div>
+        <canvas id="graph" aria-hidden="true"></canvas>
+        <div class="log" id="log" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="caps" aria-label="What FaridEx does">
+      <div>
+        <h2>Exploitable attack paths</h2>
+        <p>Yen’s k-shortest paths over <code>sts:AssumeRole</code> and <code>iam:PassRole</code> edges rank the routes an attacker would take.</p>
+      </div>
+      <div>
+        <h2>Native MCP server</h2>
+        <p>Query the live security graph from Claude Desktop, Cursor, or your own agents over JSON-RPC.</p>
+      </div>
+      <div>
+        <h2>Reviewable remediation</h2>
+        <p>AI drafts each diff. You read it, approve it, and the decision is written to an audit log.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 FaridSec</span>
+    <a id="contact" href="mailto:hello@faridsec.com">hello@faridsec.com</a>
+  </div>
+</footer>
+
+<script>
+/* ---- settings ---- */
+const CONTACT = "hello@faridsec.com";   // shown in footer and used as mailto fallback
+const FORM_ENDPOINT = "";               // e.g. "https://formspree.io/f/xxxxxxx"; empty = mailto fallback
+
+/* ---- notify form ---- */
+const form = document.getElementById("notify"), input = document.getElementById("email"), note = document.getElementById("note");
+const say = (t, c) => { note.textContent = t; note.className = "note " + (c || ""); };
+document.getElementById("contact").href = "mailto:" + CONTACT;
+document.getElementById("contact").textContent = CONTACT;
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!input.checkValidity()) { say("Enter a valid email address.", "err"); input.focus(); return; }
+  const email = input.value.trim();
+  if (FORM_ENDPOINT) {
+    try {
+      const r = await fetch(FORM_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ email }) });
+      if (!r.ok) throw new Error();
+      say("You’re on the list. We’ll email you at launch.", "ok"); form.reset();
+    } catch { say("That didn’t send. Try again, or email " + CONTACT + ".", "err"); }
+  } else {
+    location.href = "mailto:" + CONTACT + "?subject=" + encodeURIComponent("Notify me at launch") + "&body=" + encodeURIComponent("Please notify " + email + " when FaridEx launches.");
+    say("Your email app should open to send the request.", "ok");
+  }
+});
+
+/* ---- attack path graph ---- */
+const cv = document.getElementById("graph"), ctx = cv.getContext("2d"), logEl = document.getElementById("log");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// x, y as fractions; label offset [dx, dy, align]
+const N = [
+  { x:.17, y:.50, l:"0.0.0.0/0",            o:[-14,4,"right"] },
+  { x:.27, y:.24, l:"ec2:i-09a8f",          o:[0,-16,"center"] },
+  { x:.27, y:.76, l:"Role/CI-Deployer",     o:[0,24,"center"] },
+  { x:.55, y:.45, l:"Role/ProdDataPipeline",o:[0,-18,"center"] },
+  { x:.55, y:.86, l:"fn/report-builder",    o:[0,-16,"center"] },
+  { x:.90, y:.50, l:"s3:prod-fin-ledger",   o:[10,26,"right"] },
+  { x:.78, y:.14, l:"user/analyst",         o:[0,-14,"center"] }
+];
+const E = [[0,1],[0,2],[1,3],[2,3],[2,4],[3,5],[4,5],[6,5]];
+const PA = [[0,1],[1,3],[3,5]], PB = [[0,2],[2,3],[3,5]];
+const LIT = { 0:2.0, 1:2.6, 3:3.2, 5:3.8, 2:4.8 }; // time each node is reached
+const LOOP = 11.5, SEVER = 6.2;
+const LOG = [
+  [.3,  "cmd","$ faridex discover --account 112233445566"],
+  [1.1, "",   "graph: 7 nodes, 8 edges loaded"],
+  [2.2, "hit","path 1: internet → ec2:i-09a8f → ProdDataPipeline → s3:prod-fin-ledger"],
+  [4.4, "hit","path 2: internet → CI-Deployer → ProdDataPipeline → s3:prod-fin-ledger"],
+  [6.4, "fix","choke point: Role/ProdDataPipeline severs 2 of 2 paths"],
+  [7.4, "fix","remediation diff ready, awaiting human approval"]
+];
+let W, H, shown = 0, last = 0;
+function size() {
+  const d = Math.min(devicePixelRatio || 1, 2), r = cv.getBoundingClientRect();
+  W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d,0,0,d,0,0);
+}
+const P = i => ({ x: N[i].x * W, y: N[i].y * H });
+const clamp = v => Math.max(0, Math.min(1, v));
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const ALERT = [255,122,107], MUTED = [156,163,184], ACC = [123,145,255];
+
+function line(a, b, f) {
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + (b.x-a.x)*f, a.y + (b.y-a.y)*f); ctx.stroke();
+}
+function frame(T) {
+  ctx.clearRect(0, 0, W, H);
+  const intro = clamp(T / 1.2), s = clamp((T - SEVER) / .9);
+  ctx.globalAlpha = T > LOOP - 1 ? clamp(LOOP - T) : 1;
+  ctx.lineWidth = 1.5; ctx.setLineDash([]);
+
+  // base edges
+  ctx.strokeStyle = rgb(MUTED, .26 * intro);
+  E.forEach(([a, b]) => line(P(a), P(b), 1));
+
+  // exposed paths, drawn edge by edge, fading to muted once severed
+  const col = rgb(mix(ALERT, MUTED, s), 1 - .75 * s);
+  [[PA, 2.0], [PB, 4.2]].forEach(([path, t0]) => path.forEach(([a, b], i) => {
+    const f = clamp((T - t0 - i * .6) / .6); if (!f) return;
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+    if (s > .5 && (a === 3 || b === 3)) ctx.setLineDash([4, 5]);
+    line(P(a), P(b), f); ctx.setLineDash([]);
+    if (f < 1 && s === 0) { const p = P(a), q = P(b); ctx.fillStyle = rgb(ALERT);
+      ctx.beginPath(); ctx.arc(p.x + (q.x-p.x)*f, p.y + (q.y-p.y)*f, 3.5, 0, 7); ctx.fill(); }
+  }));
+
+  // nodes + labels
+  ctx.font = `${W < 420 ? 10 : 11.5}px "JetBrains Mono", monospace`;
+  N.forEach((n, i) => {
+    const p = P(i), lit = LIT[i] !== undefined && T >= LIT[i];
+    const c = lit ? mix(ALERT, MUTED, s) : ACC, big = i === 5 ? 9 : 7;
+    ctx.fillStyle = "#161622"; ctx.strokeStyle = lit ? rgb(c) : rgb(ACC, .55); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, big, 0, 7); ctx.fill(); ctx.stroke();
+    if (i === 3 && s > 0) {   // choke point: filled node and one expanding ring
+      ctx.fillStyle = rgb([85,110,238]); ctx.beginPath(); ctx.arc(p.x, p.y, big - 2, 0, 7); ctx.fill();
+      const r = clamp((T - SEVER) / 1.4); ctx.strokeStyle = rgb(ACC, 1 - r);
+      ctx.beginPath(); ctx.arc(p.x, p.y, big + 4 + r * 22, 0, 7); ctx.stroke();
+    }
+    ctx.fillStyle = i === 3 && s > 0 ? "#F3F4F8" : "rgba(156,163,184,.95)";
+    ctx.textAlign = n.o[2]; ctx.fillText(n.l, p.x + n.o[0], p.y + n.o[1]);
+  });
+  ctx.globalAlpha = 1;
+}
+function updateLog(T) {
+  if (T < last) { logEl.textContent = ""; shown = 0; }
+  last = T;
+  while (shown < LOG.length && T >= LOG[shown][0]) {
+    const d = document.createElement("div"); d.className = LOG[shown][1]; d.textContent = LOG[shown][2];
+    logEl.appendChild(d); shown++;
+  }
+}
+size(); addEventListener("resize", () => { size(); if (reduce) frame(8); });
+document.fonts && document.fonts.ready.then(() => reduce && frame(8));
+if (reduce) { frame(8); updateLog(99); }
+else {
+  let t0 = null;
+  const tick = now => {
+    if (t0 === null) t0 = now;
+    const T = ((now - t0) / 1000) % LOOP; frame(T); updateLog(T); requestAnimationFrame(tick);
+  };
+  // wait for the hero load sequence, and pause when the tab is hidden
+  setTimeout(() => requestAnimationFrame(tick), 900);
+}
+</script>
+</body>
+</html>
