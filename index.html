@@ -4,166 +4,211 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mohammed Farid | Cybersecurity Architect</title>
-    <meta name="description" content="Portfolio, write-ups, and achievements of Mohammed Farid, Cybersecurity Architect.">
     
-    <!-- Lottie Script to run your Scene.json animation -->
+    <!-- Lottie & GSAP Animation Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600&display=swap" rel="stylesheet">
+    
     <style>
         :root {
             --bg: #0F0F15;
             --text: #F3F4F8;
             --muted: #9CA3B8;
             --accent: #556EEE;
-            --border: rgba(243, 244, 248, 0.1);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
         }
+        
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        
         body {
-            background: var(--bg);
+            background-color: var(--bg);
             color: var(--text);
             font-family: 'Inter', sans-serif;
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 4rem 2rem;
-        }
-        h1, h2, h3 { font-family: 'Outfit', sans-serif; }
-        h1 { font-size: clamp(2.5rem, 5vw, 4rem); margin-bottom: 1rem; line-height: 1.1; }
-        h2 { font-size: 2rem; margin: 4rem 0 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-        p { color: var(--muted); margin-bottom: 1rem; font-size: 1.1rem; }
-        a { color: var(--accent); text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        
-        /* Animation Container */
-        #hero-animation {
-            width: 100%;
-            max-width: 500px;
-            margin: 2rem 0;
-            border-radius: 12px;
-            background: rgba(255,255,255,0.02); /* Subtle glass backing */
-            border: 1px solid var(--border);
+            overflow-x: hidden;
+            /* Extra tall body to allow for smooth scrolling */
+            height: 350vh; 
         }
 
-        /* Bento Grid for Projects/Certs */
-        .grid {
+        /* 1. The Scroll-Controlled Background Movie */
+        #lottie-background {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100vw;
+            height: 100vh;
+            z-index: -1; /* Keeps it behind the text */
+            opacity: 0.4; /* Dims the animation so text is readable */
+            pointer-events: none;
+        }
+
+        /* 2. The Glassmorphism Content Layers */
+        .content-wrapper {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            opacity: 0; /* Hidden by default, GSAP will fade this in */
+            transform: translateY(50px);
+        }
+
+        h1 { font-family: 'Outfit', sans-serif; font-size: clamp(3rem, 6vw, 5rem); line-height: 1.1; margin-bottom: 1rem; }
+        h2 { font-family: 'Outfit', sans-serif; font-size: 2.5rem; margin-bottom: 2rem; color: var(--accent); }
+        p.lead { font-size: 1.2rem; color: var(--muted); max-width: 600px; }
+
+        /* Liquid Glass Bento Box */
+        .bento-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 1.5rem;
+            margin-top: 2rem;
         }
-        .card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            padding: 2rem;
-            border-radius: 12px;
-            transition: transform 0.2s, border-color 0.2s;
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2.5rem;
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
-        .card:hover {
-            transform: translateY(-3px);
-            border-color: var(--accent);
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(85, 110, 238, 0.4);
+            box-shadow: 0 10px 30px rgba(85, 110, 238, 0.1);
         }
 
         /* Contact Form */
-        form { display: flex; gap: 1rem; margin-top: 1rem; max-width: 500px; }
+        form { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
         input {
-            flex: 1;
-            background: transparent;
-            border: 1px solid var(--border);
-            padding: 0.8rem 1rem;
-            border-radius: 6px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--glass-border);
+            padding: 1rem;
+            border-radius: 8px;
             color: var(--text);
             font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
         }
-        input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+        input:focus { outline: none; border-color: var(--accent); }
+        
         button {
             background: var(--accent);
             color: #fff;
             border: none;
-            padding: 0.8rem 1.5rem;
-            border-radius: 6px;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: background 0.3s ease;
         }
-        button:hover { opacity: 0.9; }
-        #form-message { font-size: 0.9rem; margin-top: 0.5rem; color: var(--accent); }
+        button:hover { background: #6b82ff; }
+        #form-message { margin-top: 1rem; font-size: 0.9rem; color: var(--accent); }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <!-- Hero Section -->
-    <header>
+<!-- The Interactive Lottie Background -->
+<div id="lottie-background"></div>
+
+<!-- The Cinematic Scrolling Content -->
+<div class="content-wrapper">
+    
+    <section class="animate-section">
         <h1>Mohammed Farid</h1>
-        <p>Cybersecurity Architect | Cloud Security Posture Management</p>
-        
-        <!-- This is where your Scene.json animation will load -->
-        <div id="hero-animation"></div>
-    </header>
-
-    <!-- Bio Section -->
-    <section>
-        <h2>About Me</h2>
-        <p>I build secure, scalable architectures and map attack paths in AWS. My focus is on eliminating privilege escalation routes before they can be exploited.</p>
+        <p class="lead">Cybersecurity Architect. I build secure architectures and map cloud attack paths before they can be exploited.</p>
     </section>
 
-    <!-- Certifications & Achievements -->
-    <section>
-        <h2>Certifications & Achievements</h2>
-        <div class="grid">
-            <div class="card">
-                <h3>Certification Name</h3>
-                <p>Issuing Authority, 2024</p>
+    <section class="animate-section">
+        <h2>Credentials & Projects</h2>
+        <div class="bento-grid">
+            <div class="glass-card">
+                <h3>FaridEx (Coming 2026)</h3>
+                <p style="color: var(--muted); margin-top: 0.5rem;">AWS IAM trust chain mapping and AI remediation.</p>
+                <a href="https://faridex.faridsec.com" style="color: var(--accent); display: inline-block; margin-top: 1rem; text-decoration: none;">View Infrastructure →</a>
             </div>
-            <div class="card">
-                <h3>CTF Challenge Winner</h3>
-                <p>Global Security Hackathon</p>
+            <div class="glass-card">
+                <h3>Security Write-ups</h3>
+                <p style="color: var(--muted); margin-top: 0.5rem;">Exploitable privilege escalation routes and mitigations.</p>
             </div>
         </div>
     </section>
 
-    <!-- Projects Section -->
-    <section>
-        <h2>Projects & Write-ups</h2>
-        <div class="grid">
-            <div class="card">
-                <h3>FaridEx</h3>
-                <p>AWS IAM attack path analysis and human-approved AI remediation graph. Coming 2026.</p>
-                <a href="https://faridex.faridsec.com" target="_blank">View Project →</a>
-            </div>
-            <div class="card">
-                <h3>Vulnerability Write-up</h3>
-                <p>Detailed breakdown of bypassing IMDSv1 SSRF vectors in EC2.</p>
-                <a href="#">Read Write-up →</a>
-            </div>
+    <section class="animate-section">
+        <div class="glass-card" style="max-width: 500px;">
+            <h2>Request Full CV</h2>
+            <p style="color: var(--muted);">Credentials securely dispatched via automated email.</p>
+            <form id="contact-form">
+                <input type="email" id="email-input" placeholder="Enter your email address" required>
+                <button type="submit" id="submit-btn">Send Credentials</button>
+            </form>
+            <div id="form-message"></div>
         </div>
     </section>
 
-    <!-- Contact & CV Form (Wired to your existing Cloudflare Worker) -->
-    <section>
-        <h2>Get in Touch / Request CV</h2>
-        <p>Enter your email to request my full resume or start a conversation.</p>
-        <form id="contact-form">
-            <input type="email" id="email-input" placeholder="you@company.com" required>
-            <button type="submit" id="submit-btn">Send</button>
-        </form>
-        <div id="form-message"></div>
-    </section>
 </div>
 
 <script>
-    // 1. Initialize the Lottie Animation
-    lottie.loadAnimation({
-        container: document.getElementById('hero-animation'), 
+    // 1. Register GSAP ScrollTrigger
+    gsap.registerPlugin(ScrollTrigger);
+
+    // 2. Load the Lottie Animation
+    let lottieAnim = lottie.loadAnimation({
+        container: document.getElementById('lottie-background'),
         renderer: 'svg',
-        loop: true,
-        autoplay: true,
-        path: 'Scene.json' // This points exactly to your uploaded file
+        loop: false,
+        autoplay: false, // We stop it from playing automatically
+        path: 'Scene.json' // MUST be in the same folder
     });
 
-    // 2. Cloudflare Worker Form Submission Logic
+    // 3. Tie Lottie to the Scroll Wheel
+    lottieAnim.addEventListener('DOMLoaded', function () {
+        let playhead = { frame: 0 };
+        
+        gsap.to(playhead, {
+            frame: lottieAnim.totalFrames - 1,
+            ease: "none",
+            onUpdate: () => lottieAnim.goToAndStop(playhead.frame, true),
+            scrollTrigger: {
+                trigger: "body",
+                start: "top top",
+                end: "bottom bottom",
+                scrub: 1 // Adds a smooth 1-second delay to the scrubbing for a cinematic feel
+            }
+        });
+    });
+
+    // 4. Animate the Text Sections as they enter the screen
+    gsap.utils.toArray('.animate-section').forEach(section => {
+        gsap.to(section, {
+            opacity: 1,
+            y: 0,
+            duration: 1,
+            ease: "power3.out",
+            scrollTrigger: {
+                trigger: section,
+                start: "top 75%", // Starts animating when the section is 75% down the screen
+            }
+        });
+    });
+
+    // 5. Cloudflare Worker Secure Form Backend
     const WORKER_URL = "https://faridex-notify.devsecop3.workers.dev";
     const form = document.getElementById('contact-form');
     const msg = document.getElementById('form-message');
@@ -174,7 +219,7 @@
         const email = document.getElementById('email-input').value;
         
         btn.disabled = true;
-        btn.textContent = "Sending...";
+        btn.textContent = "Processing...";
         msg.textContent = "";
 
         try {
@@ -185,17 +230,17 @@
             });
 
             if (response.ok) {
-                msg.textContent = "Success! I will be in touch shortly.";
+                msg.textContent = "CV successfully dispatched to your inbox.";
                 form.reset();
             } else {
                 throw new Error("Failed");
             }
         } catch (error) {
-            msg.textContent = "Something went wrong. Please email contact@faridsec.com directly.";
+            msg.textContent = "Routing failed. Please email contact@faridsec.com directly.";
             msg.style.color = "#FF7A6B";
         } finally {
             btn.disabled = false;
-            btn.textContent = "Send";
+            btn.textContent = "Send Credentials";
         }
     });
 </script>
